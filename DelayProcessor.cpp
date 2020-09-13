@@ -61,6 +61,8 @@ void TapeDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     // sample buffer for 2 seconds + 2 buffers safety
     mDelayBufferOne.setSize (getTotalNumOutputChannels(), 2.0 * (samplesPerBlock + sampleRate), false, false);
     mDelayBufferOne.clear();
+    mDelayBufferTwo.setSize (getTotalNumOutputChannels(), 2.0 * (samplesPerBlock + sampleRate), false, false);
+    mDelayBufferTwo.clear();
     
     mExpectedReadPosOne = -1;
 }
@@ -136,7 +138,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (mDelayBufferOne, buffer, i, outputChannelNum, mExpectedReadPosOne, delayLevelOne, endGain, false);
+                    readFromDelayBuffer (mDelayBufferOne, buffer, i, 0, mExpectedReadPosOne, delayLevelOne, endGain, false);
                 }
             }
             
@@ -146,7 +148,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (mDelayBufferOne, buffer, i, outputChannelNum, readPos, 0.0, delayLevelOne, false);
+                    readFromDelayBuffer (mDelayBufferOne, buffer, i, 0, readPos, 0.0, delayLevelOne, false);
                 }
             }
         }
@@ -156,7 +158,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
         {
             const int outputChannelNum = inputBus->getChannelIndexInProcessBlockBuffer (i);
             
-            writeToDelayBuffer (mDelayBufferOne, buffer, outputChannelNum, i, mWritePosOne, mLastFeedbackGainOne, feedbackOne, false);
+            writeToDelayBuffer (mDelayBufferOne, buffer, outputChannelNum, 0, mWritePosOne, mLastFeedbackGainOne, feedbackOne, false);
         }
         mLastFeedbackGainOne = feedbackOne;
         

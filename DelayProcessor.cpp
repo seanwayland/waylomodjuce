@@ -106,10 +106,15 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
 {
     if (Bus* inputBus = getBus (true, 0))
     {
-        const float delayLevelOne = 0.8;
+        const float delayLevelOne = 0.1;
         const float gain = Decibels::decibelsToGain (mGain.get());
         const float timeOne = mTimeOne.get();
         const float feedbackOne = Decibels::decibelsToGain (mFeedbackOne.get());
+        
+        const float delayLevelTwo = 0.1;
+        
+        const float timeTwo = 200;
+        const float feedbackTwo = Decibels::decibelsToGain (mFeedbackOne.get());
         
         // write original to delay
         for (int i=0; i < mDelayBufferOne.getNumChannels(); ++i)
@@ -117,16 +122,23 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
             const int inputChannelNum = inputBus->getChannelIndexInProcessBlockBuffer (std::min (i, inputBus->getNumberOfChannels()));
             
             writeToDelayBuffer (mDelayBufferOne, buffer, inputChannelNum, i, mWritePosOne, 1.0f, 1.0f, true);
+            writeToDelayBuffer (mDelayBufferTwo, buffer, inputChannelNum, i, mWritePosTwo, 1.0f, 1.0f, true);
         }
         
         // adapt dry gain
         buffer.applyGainRamp (0, buffer.getNumSamples(), mLastInputGainOne, gain);
         mLastInputGainOne = gain;
+        buffer.applyGainRamp (0, buffer.getNumSamples(), mLastInputGainTwo, gain);
+        mLastInputGainTwo = gain;
         
         // read delayed signal
-        auto readPos = roundToInt (mWritePosOne - (mSampleRate * timeOne / 1000.0));
-        if (readPos < 0)
-            readPos += mDelayBufferOne.getNumSamples();
+        auto readPosOne = roundToInt (mWritePosOne - (mSampleRate * timeOne / 1000.0));
+        if (readPosOne < 0)
+            readPosOne += mDelayBufferOne.getNumSamples();
+        
+        auto readPosTwo = roundToInt (mWritePosOne - (mSampleRate * timeTwo / 1000.0));
+        if (readPosTwo < 0)
+            readPosTwo += mDelayBufferTwo.getNumSamples();
         
         if (Bus* outputBus = getBus (false, 0))
         {
@@ -134,23 +146,46 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
             if (mExpectedReadPosOne >= 0)
             {
                 // fade out if readPos is off
-                auto endGain = (readPos == mExpectedReadPosOne) ? delayLevelOne : 0.0f;
+                auto endGainOne = (readPosOne == mExpectedReadPosOne) ? delayLevelOne : 0.0f;
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (mDelayBufferOne, buffer, i, 0, mExpectedReadPosOne, delayLevelOne, endGain, false);
+                    readFromDelayBuffer (mDelayBufferOne, buffer, i, 0, mExpectedReadPosOne, delayLevelOne, endGainOne, false);
+                }
+            }
+            
+            if (mExpectedReadPosTwo >= 0)
+            {
+                // fade out if readPos is off
+                auto endGainTwo = (readPosTwo == mExpectedReadPosTwo) ? delayLevelTwo : 0.0f;
+                for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
+                {
+                    const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
+                    readFromDelayBuffer (mDelayBufferTwo, buffer, i, 1, mExpectedReadPosTwo, delayLevelTwo, endGainTwo, false);
                 }
             }
             
             // fade in at new position
-            if (readPos != mExpectedReadPosOne)
+            if (readPosOne != mExpectedReadPosOne)
             {
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (mDelayBufferOne, buffer, i, 0, readPos, 0.0, delayLevelOne, false);
+                    readFromDelayBuffer (mDelayBufferOne, buffer, i, 0, readPosOne, 0.0, delayLevelOne, false);
                 }
             }
+            
+            
+            // fade in at new position
+            if (readPosTwo != mExpectedReadPosTwo)
+            {
+                for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
+                {
+                    const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
+                    readFromDelayBuffer (mDelayBufferTwo, buffer, i, 1, readPosTwo, 0.0, delayLevelTwo, false);
+                }
+            }
+            
         }
         
         // add feedback to delay
@@ -160,16 +195,36 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
             
             writeToDelayBuffer (mDelayBufferOne, buffer, outputChannelNum, 0, mWritePosOne, mLastFeedbackGainOne, feedbackOne, false);
         }
+        
+        for (int i=0; i<inputBus->getNumberOfChannels(); ++i)
+        {
+            const int outputChannelNum = inputBus->getChannelIndexInProcessBlockBuffer (i);
+            
+            writeToDelayBuffer (mDelayBufferTwo, buffer, outputChannelNum, 1, mWritePosTwo, mLastFeedbackGainTwo, feedbackTwo, false);
+        }
+        
+        
+        
         mLastFeedbackGainOne = feedbackOne;
+        mLastFeedbackGainTwo = feedbackTwo;
+        
         
         // advance positions
         mWritePosOne += buffer.getNumSamples();
         if (mWritePosOne >= mDelayBufferOne.getNumSamples())
             mWritePosOne -= mDelayBufferOne.getNumSamples();
         
-        mExpectedReadPosOne = readPos + buffer.getNumSamples();
+        mWritePosTwo += buffer.getNumSamples();
+        if (mWritePosTwo >= mDelayBufferTwo.getNumSamples())
+            mWritePosTwo -= mDelayBufferTwo.getNumSamples();
+        
+        mExpectedReadPosOne = readPosOne + buffer.getNumSamples();
         if (mExpectedReadPosOne >= mDelayBufferOne.getNumSamples())
             mExpectedReadPosOne -= mDelayBufferOne.getNumSamples();
+        
+        mExpectedReadPosTwo = readPosTwo + buffer.getNumSamples();
+        if (mExpectedReadPosTwo >= mDelayBufferTwo.getNumSamples())
+            mExpectedReadPosTwo -= mDelayBufferTwo.getNumSamples();
     }
 }
 

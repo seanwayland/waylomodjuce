@@ -104,6 +104,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
 {
     if (Bus* inputBus = getBus (true, 0))
     {
+        const float delayLevel = 0.8;
         const float gain = Decibels::decibelsToGain (mGain.get());
         const float time = mTime.get();
         const float feedback = Decibels::decibelsToGain (mFeedback.get());
@@ -130,11 +131,11 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
             if (mExpectedReadPos >= 0)
             {
                 // fade out if readPos is off
-                auto endGain = (readPos == mExpectedReadPos) ? 0.1f : 0.0f;
+                auto endGain = (readPos == mExpectedReadPos) ? delayLevel : 0.0f;
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (buffer, i, outputChannelNum, mExpectedReadPos, 0.1, endGain, false);
+                    readFromDelayBuffer (buffer, i, outputChannelNum, mExpectedReadPos, delayLevel, endGain, false);
                 }
             }
             
@@ -144,7 +145,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (buffer, i, outputChannelNum, readPos, 0.0, 0.1, false);
+                    readFromDelayBuffer (buffer, i, outputChannelNum, readPos, 0.0, delayLevel, false);
                 }
             }
         }

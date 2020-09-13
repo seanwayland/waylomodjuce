@@ -40,7 +40,7 @@ public:
                              float startGain, float endGain,
                              bool replacing);
     
-    void readFromDelayBuffer (AudioSampleBuffer& buffer,
+    void readFromDelayBuffer (AudioSampleBuffer& delayBuffer, AudioSampleBuffer& buffer,
                               const int channelIn, const int channelOut,
                               const int readPos,
                               float startGain, float endGain,

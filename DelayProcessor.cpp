@@ -136,7 +136,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (buffer, i, outputChannelNum, mExpectedReadPosOne, delayLevelOne, endGain, false);
+                    readFromDelayBuffer (mDelayBufferOne, buffer, i, outputChannelNum, mExpectedReadPosOne, delayLevelOne, endGain, false);
                 }
             }
             
@@ -146,7 +146,7 @@ void TapeDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuffe
                 for (int i=0; i<outputBus->getNumberOfChannels(); ++i)
                 {
                     const int outputChannelNum = outputBus->getChannelIndexInProcessBlockBuffer (i);
-                    readFromDelayBuffer (buffer, i, outputChannelNum, readPos, 0.0, delayLevelOne, false);
+                    readFromDelayBuffer (mDelayBufferOne, buffer, i, outputChannelNum, readPos, 0.0, delayLevelOne, false);
                 }
             }
         }
@@ -199,33 +199,33 @@ void TapeDelayAudioProcessor::writeToDelayBuffer (AudioSampleBuffer& delayBuffer
     }
 }
 
-void TapeDelayAudioProcessor::readFromDelayBuffer (AudioSampleBuffer& buffer,
+void TapeDelayAudioProcessor::readFromDelayBuffer (AudioSampleBuffer& delayBuffer, AudioSampleBuffer& buffer,
                                                    const int channelIn, const int channelOut,
                                                    const int readPos,
                                                    float startGain, float endGain,
                                                    bool replacing)
 {
     
-    if (readPos + buffer.getNumSamples() <= mDelayBufferOne.getNumSamples())
+    if (readPos + buffer.getNumSamples() <= delayBuffer.getNumSamples())
     {
         if (replacing)
-            buffer.copyFromWithRamp (channelOut, 0, mDelayBufferOne.getReadPointer (channelIn, readPos), buffer.getNumSamples(), startGain, endGain);
+            buffer.copyFromWithRamp (channelOut, 0, delayBuffer.getReadPointer (channelIn, readPos), buffer.getNumSamples(), startGain, endGain);
         else
-            buffer.addFromWithRamp (channelOut, 0, mDelayBufferOne.getReadPointer (channelIn, readPos), buffer.getNumSamples(), startGain, endGain);
+            buffer.addFromWithRamp (channelOut, 0, delayBuffer.getReadPointer (channelIn, readPos), buffer.getNumSamples(), startGain, endGain);
     }
     else
     {
-        const auto midPos  = mDelayBufferOne.getNumSamples() - readPos;
+        const auto midPos  = delayBuffer.getNumSamples() - readPos;
         const auto midGain = jmap (float (midPos) / buffer.getNumSamples(), startGain, endGain);
         if (replacing)
         {
-            buffer.copyFromWithRamp (channelOut, 0,      mDelayBufferOne.getReadPointer (channelIn, readPos), midPos, startGain, midGain);
-            buffer.copyFromWithRamp (channelOut, midPos, mDelayBufferOne.getReadPointer (channelIn), buffer.getNumSamples() - midPos, midGain, endGain);
+            buffer.copyFromWithRamp (channelOut, 0,      delayBuffer.getReadPointer (channelIn, readPos), midPos, startGain, midGain);
+            buffer.copyFromWithRamp (channelOut, midPos, delayBuffer.getReadPointer (channelIn), buffer.getNumSamples() - midPos, midGain, endGain);
         }
         else
         {
-            buffer.addFromWithRamp (channelOut, 0,      mDelayBufferOne.getReadPointer (channelIn, readPos), midPos, startGain, midGain);
-            buffer.addFromWithRamp (channelOut, midPos, mDelayBufferOne.getReadPointer (channelIn), buffer.getNumSamples() - midPos, midGain, endGain);
+            buffer.addFromWithRamp (channelOut, 0, delayBuffer.getReadPointer (channelIn, readPos), midPos, startGain, midGain);
+            buffer.addFromWithRamp (channelOut, midPos, delayBuffer.getReadPointer (channelIn), buffer.getNumSamples() - midPos, midGain, endGain);
         }
     }
 }
